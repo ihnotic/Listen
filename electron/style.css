@@ -80,41 +80,11 @@ body {
   height: 52px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 0 16px 0 80px; /* 80px left for macOS traffic lights */
-  border-bottom: 1px solid hsl(var(--border));
   flex-shrink: 0;
   position: relative;
   z-index: 10;
-}
-
-/* Status pill */
-#status-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-#status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: hsl(var(--muted-foreground));
-  flex-shrink: 0;
-  transition: background 0.3s;
-}
-
-#status-dot.recording  { background: hsl(var(--color-recording)); }
-#status-dot.listening  { background: hsl(var(--color-listening)); }
-#status-dot.muted      { background: hsl(var(--color-muted)); }
-#status-dot.ready      { background: hsl(var(--color-ready)); }
-#status-dot.loading    { background: hsl(var(--color-loading)); }
-#status-dot.error      { background: hsl(var(--color-error)); }
-
-#status-text {
-  font-size: 12px;
-  font-weight: 500;
-  color: hsl(var(--muted-foreground));
 }
 
 /* Hamburger button */

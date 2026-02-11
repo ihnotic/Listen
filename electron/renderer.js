@@ -2,8 +2,6 @@
 // DOM elements
 // ============================================================
 
-const statusDot = document.getElementById("status-dot");
-const statusText = document.getElementById("status-text");
 const menuBtn = document.getElementById("menu-btn");
 const settingsOverlay = document.getElementById("settings-overlay");
 const settingsClose = document.getElementById("settings-close");
@@ -23,6 +21,36 @@ let totalWords = 0;
 let totalSegments = 0;
 let sessionStartTime = null;
 let sessionTimer = null;
+
+// ============================================================
+// Recording sounds (Web Audio API)
+// ============================================================
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playTone(freq, duration, type = "sine", volume = 0.15) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playStartSound() {
+  // Two-tone ascending chime
+  playTone(660, 0.12, "sine", 0.13);
+  setTimeout(() => playTone(880, 0.15, "sine", 0.13), 80);
+}
+
+function playStopSound() {
+  // Single descending tone
+  playTone(440, 0.15, "sine", 0.1);
+}
 
 // ============================================================
 // Theme management
@@ -109,14 +137,26 @@ function updateTimerDisplay() {
 }
 
 // ============================================================
-// Status updates
+// State tracking (no visible status indicator)
 // ============================================================
 
-function setStatus(state, text) {
+function setStatus(state) {
+  const prevState = currentState;
   currentState = state;
-  statusDot.className = "";
-  statusDot.classList.add(state);
-  statusText.textContent = text;
+
+  // Play sounds on recording/listening transitions
+  if (
+    (state === "recording" || state === "listening") &&
+    prevState !== "recording" &&
+    prevState !== "listening"
+  ) {
+    playStartSound();
+  } else if (
+    (state === "ready" || state === "muted" || state === "stopped") &&
+    (prevState === "recording" || prevState === "listening")
+  ) {
+    playStopSound();
+  }
 }
 
 // ============================================================
@@ -157,21 +197,21 @@ window.listen.onMessage((msg) => {
       addTranscription(msg.text);
       break;
     case "model_loading":
-      setStatus("loading", "Loading model...");
+      setStatus("loading");
       break;
     case "model_loaded":
       modelLoaded = true;
-      setStatus("ready", "Model loaded");
+      setStatus("ready");
       window.listen.send({ action: "start" });
       break;
     case "status":
-      setStatus("loading", msg.message);
+      setStatus("loading");
       break;
     case "devices":
       populateDevices(msg.devices);
       break;
     case "error":
-      setStatus("error", msg.message);
+      setStatus("error");
       break;
   }
 });
@@ -183,27 +223,27 @@ function handleState(msg) {
   if (msg.state) {
     switch (msg.state) {
       case "idle":
-        setStatus("loading", "Initializing...");
+        setStatus("loading");
         window.listen.send({ action: "get_devices" });
         window.listen.send({ action: "download_model" });
         break;
       case "ready":
-        setStatus("ready", "Ready");
+        setStatus("ready");
         break;
       case "recording":
-        setStatus("recording", "Recording...");
+        setStatus("recording");
         break;
       case "listening":
-        setStatus("listening", "Listening...");
+        setStatus("listening");
         break;
       case "muted":
-        setStatus("muted", "Muted");
+        setStatus("muted");
         break;
       case "stopped":
-        setStatus("ready", "Stopped");
+        setStatus("ready");
         break;
       case "quit":
-        setStatus("ready", "Disconnected");
+        setStatus("ready");
         break;
     }
   }
