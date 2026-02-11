@@ -1,4 +1,10 @@
-const { app, BrowserWindow, globalShortcut, ipcMain } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  globalShortcut,
+  ipcMain,
+  nativeTheme,
+} = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 
@@ -10,14 +16,12 @@ let isActive = false;
 
 // Find the Python backend
 function getPythonCommand() {
-  // In packaged app, use bundled binary
   const resourcePath = process.resourcesPath;
   const bundled = path.join(resourcePath, "listen", "listen");
   try {
     require("fs").accessSync(bundled, require("fs").constants.X_OK);
     return [bundled, ["serve"]];
   } catch {
-    // Development: use system `listen` command
     return ["listen", ["serve"]];
   }
 }
@@ -26,10 +30,12 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 480,
     height: 640,
-    minWidth: 360,
-    minHeight: 480,
+    minWidth: 380,
+    minHeight: 500,
     titleBarStyle: "hiddenInset",
-    backgroundColor: "#1a1a1a",
+    trafficLightPosition: { x: 16, y: 16 },
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#09090b" : "#ffffff",
+    icon: path.join(__dirname, "..", "assets", "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -41,6 +47,15 @@ function createWindow() {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+  });
+
+  // Send theme updates to renderer
+  nativeTheme.on("updated", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("system-theme-changed", {
+        dark: nativeTheme.shouldUseDarkColors,
+      });
+    }
   });
 }
 
@@ -57,7 +72,7 @@ function startBackend() {
   pythonProcess.stdout.on("data", (data) => {
     buffer += data.toString();
     const lines = buffer.split("\n");
-    buffer = lines.pop(); // keep incomplete line in buffer
+    buffer = lines.pop();
 
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -67,7 +82,6 @@ function startBackend() {
           mainWindow.webContents.send("backend-message", msg);
         }
 
-        // Track state for hotkey management
         if (msg.type === "state") {
           if (msg.hotkey && msg.hotkey !== currentHotkey) {
             registerHotkey(msg.hotkey);
@@ -108,7 +122,6 @@ function sendToBackend(msg) {
 }
 
 function registerHotkey(hotkey) {
-  // Unregister previous
   if (currentHotkey) {
     try {
       globalShortcut.unregister(formatHotkey(currentHotkey));
@@ -122,7 +135,6 @@ function registerHotkey(hotkey) {
 
   try {
     const success = globalShortcut.register(electronHotkey, () => {
-      // Toggle active state
       const newActive = !isActive;
       isActive = newActive;
       sendToBackend({ action: "set_active", active: newActive });
@@ -136,7 +148,6 @@ function registerHotkey(hotkey) {
   }
 }
 
-// Convert "ctrl+shift+space" to Electron format "Ctrl+Shift+Space"
 function formatHotkey(hotkey) {
   return hotkey
     .split("+")
@@ -154,13 +165,17 @@ function formatHotkey(hotkey) {
     .join("+");
 }
 
-// IPC: renderer -> main -> Python
+// IPC handlers
 ipcMain.on("send-command", (_event, msg) => {
   sendToBackend(msg);
 });
 
 ipcMain.on("update-hotkey", (_event, hotkey) => {
   sendToBackend({ action: "set_hotkey", hotkey });
+});
+
+ipcMain.handle("get-system-dark", () => {
+  return nativeTheme.shouldUseDarkColors;
 });
 
 app.whenReady().then(() => {
