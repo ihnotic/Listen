@@ -33,6 +33,9 @@ cp "$EXECUTABLE" "$MACOS_DIR/$APP_NAME"
 # Copy Info.plist
 cp "$SCRIPT_DIR/Listen/Resources/Info.plist" "$CONTENTS/Info.plist"
 
+# Copy app icon
+cp "$SCRIPT_DIR/Listen/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+
 # Copy entitlements (used for signing)
 cp "$SCRIPT_DIR/Listen/Resources/Listen.entitlements" "$CONTENTS/Listen.entitlements"
 

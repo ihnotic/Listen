@@ -18,8 +18,7 @@ struct ListenApp: App {
             MenuBarView()
                 .environmentObject(appState)
         } label: {
-            Image(systemName: appState.isRecording ? "mic.fill" : "mic")
-                .symbolRenderingMode(.hierarchical)
+            Image(systemName: "mic.fill")
         }
         .menuBarExtraStyle(.window)
     }

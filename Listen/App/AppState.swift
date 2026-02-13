@@ -29,6 +29,7 @@ final class AppState: ObservableObject {
     @Published var lastTranscription = ""
     @Published var transcriptions: [String] = []
     @Published var errorMessage: String?
+    @Published var isRecordingHotkey = false
 
     // MARK: - Services
     let audioCaptureService = AudioCaptureService()
@@ -41,12 +42,23 @@ final class AppState: ObservableObject {
     let permissions = Permissions()
 
     // MARK: - Config
-    var config = AppConfig()
+    @Published var config = AppConfig()
 
     private var audioTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         setupHotkeyCallbacks()
+        observeConfigChanges()
+
+        // Forward config changes to AppState so SwiftUI re-renders
+        config.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
         Task { await bootstrap() }
     }
 
@@ -80,8 +92,8 @@ final class AppState: ObservableObject {
             listenLog("ERROR loading model: \(error)")
         }
 
-        // Start CGEvent tap for Globe/fn key (needs Input Monitoring permission)
-        startGlobeMonitor()
+        // Start CGEvent tap for hotkey (needs Input Monitoring permission)
+        startHotkeyMonitor()
 
         listenLog("Bootstrap complete.")
     }
@@ -101,21 +113,66 @@ final class AppState: ObservableObject {
         }
     }
 
-    // MARK: - Globe/fn Key (CGEvent tap)
+    // MARK: - Config Observation
 
-    private func startGlobeMonitor() {
+    private func observeConfigChanges() {
+        config.$hotkey
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newHotkey in
+                guard let self else { return }
+                listenLog("Hotkey changed to: \(newHotkey.displayName)")
+                self.globeKeyMonitor.hotkey = newHotkey
+                self.globeKeyMonitor.restart()
+            }
+            .store(in: &cancellables)
+
+        config.$mode
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newMode in
+                self?.hotkeyManager.mode = newMode
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Hotkey Monitor (CGEvent tap)
+
+    private func startHotkeyMonitor() {
+        globeKeyMonitor.hotkey = config.hotkey
         globeKeyMonitor.onFnDown = { [weak self] in
             self?.hotkeyManager.handleFnDown()
         }
         globeKeyMonitor.onFnUp = { [weak self] in
             self?.hotkeyManager.handleFnUp()
         }
+        globeKeyMonitor.onHotkeyRecorded = { [weak self] captured in
+            Task { @MainActor in
+                guard let self else { return }
+                listenLog("Hotkey recorded: \(captured.displayName)")
+                self.isRecordingHotkey = false
+                self.config.hotkey = captured
+            }
+        }
         let success = globeKeyMonitor.start()
         if success {
-            listenLog("Globe/fn key monitor started (CGEvent tap).")
+            listenLog("Hotkey monitor started — \(config.hotkey.displayName) (CGEvent tap).")
         } else {
-            listenLog("Globe/fn key monitor FAILED — need Input Monitoring permission.")
+            listenLog("Hotkey monitor FAILED — need Input Monitoring permission.")
         }
+    }
+
+    // MARK: - Hotkey Recording (for settings UI)
+
+    func startRecordingHotkey() {
+        listenLog("Starting hotkey recording...")
+        isRecordingHotkey = true
+        globeKeyMonitor.isRecordingHotkey = true
+    }
+
+    func stopRecordingHotkey() {
+        isRecordingHotkey = false
+        globeKeyMonitor.isRecordingHotkey = false
     }
 
     // MARK: - Recording Control

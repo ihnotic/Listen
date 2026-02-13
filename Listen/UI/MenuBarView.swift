@@ -32,24 +32,6 @@ struct MenuBarView: View {
             .padding(.horizontal, 12)
             .padding(.top, 8)
 
-            Divider().padding(.vertical, 2)
-
-            // Recent transcriptions
-            if !appState.transcriptions.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(appState.transcriptions.suffix(5).enumerated()), id: \.offset) { _, text in
-                        Text(text)
-                            .font(.system(.body, design: .default))
-                            .textSelection(.enabled)
-                            .lineLimit(3)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 12)
-
-                Divider().padding(.vertical, 2)
-            }
-
             // Error message
             if let error = appState.errorMessage {
                 Text(error)
@@ -65,7 +47,9 @@ struct MenuBarView: View {
                     .padding(.horizontal, 12)
             }
 
-            // Actions
+            Divider().padding(.vertical, 2)
+
+            // Settings
             Button {
                 showSettings = true
             } label: {
@@ -84,6 +68,7 @@ struct MenuBarView: View {
 
             Divider().padding(.vertical, 2)
 
+            // Quit
             Button {
                 NSApp.terminate(nil)
             } label: {
@@ -107,6 +92,7 @@ struct MenuBarView: View {
             // Back button
             Button {
                 showSettings = false
+                appState.stopRecordingHotkey() // Cancel recording if user navigates away
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left")
@@ -135,68 +121,45 @@ struct MenuBarView: View {
 
                 // Hotkey
                 settingsSection("Hotkey") {
-                    HStack {
-                        Image(systemName: "globe")
-                            .foregroundColor(.secondary)
-                        Text("Globe (fn) key")
-                            .foregroundColor(.secondary)
+                    Button {
+                        if appState.isRecordingHotkey {
+                            appState.stopRecordingHotkey()
+                        } else {
+                            appState.startRecordingHotkey()
+                        }
+                    } label: {
+                        HStack {
+                            if appState.isRecordingHotkey {
+                                Text("Press any key...")
+                                    .font(.callout)
+                                    .foregroundColor(.accentColor)
+                            } else {
+                                Text(appState.config.hotkey.displayName)
+                                    .font(.callout)
+                            }
+                            Spacer()
+                            Image(systemName: appState.isRecordingHotkey ? "keyboard" : "pencil")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 10)
+                        .background(appState.isRecordingHotkey ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1))
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(appState.isRecordingHotkey ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
                     }
-                    .font(.callout)
-                }
+                    .buttonStyle(.plain)
 
-                // Model
-                settingsSection("Model") {
-                    HStack {
-                        Image(systemName: "cpu")
-                            .foregroundColor(.accentColor)
-                            .font(.callout)
-                        Text("Parakeet TDT 0.6B v3")
-                            .font(.callout)
-                        Spacer()
-                    }
-                    Text("NVIDIA FastConformer · CoreML · ANE")
+                    Text("Click to change, then press your desired key.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-
-                // VAD
-                settingsSection("Voice Detection") {
-                    HStack {
-                        Text("Energy").font(.callout)
-                        Spacer()
-                        Text(String(format: "%.3f", appState.config.energyThreshold))
-                            .font(.system(.callout, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("Min Speech").font(.callout)
-                        Spacer()
-                        Text("\(appState.config.minSpeechMs) ms")
-                            .font(.system(.callout, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("Min Silence").font(.callout)
-                        Spacer()
-                        Text("\(appState.config.minSilenceMs) ms")
-                            .font(.system(.callout, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
             }
             .padding(.horizontal, 12)
-
-            Divider().padding(.vertical, 2)
-
-            HStack {
-                Spacer()
-                Text("Listen · Powered by Parakeet")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 6)
+            .padding(.bottom, 8)
         }
     }
 
