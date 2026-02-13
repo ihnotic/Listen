@@ -1,22 +1,31 @@
+# Swift / SPM
+.build/
+.swiftpm/
+Package.resolved
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+*.o
+*.dSYM/
+
+# App bundle output
+dist/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Claude Code
+.claude/
+
+# Old Electron/Python (no longer used)
 __pycache__/
 *.py[cod]
 *.egg-info/
-dist/
-build/
-.eggs/
 *.egg
 .venv/
 venv/
 .env
 *.so
-.DS_Store
-.claude/
-assets/icon.iconset/
-
-# Electron
-electron/node_modules/
-electron/build/
-electron/dist/
-electron/resources/globe-listener
-electron/resources/globe-listener.sha256
-electron/resources/.module-cache/
+node_modules/

@@ -1,156 +1,112 @@
 # Listen
 
-Lightweight local speech-to-text. Runs entirely on your machine — no cloud, no API keys, no data leaves your device.
+Native macOS speech-to-text. Runs entirely on your machine — no cloud, no API keys, no data leaves your device.
 
-Listen hosts the [NVIDIA Parakeet TDT 0.6B](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) model via ONNX for fast, accurate English transcription.
+Powered by [NVIDIA Parakeet TDT 0.6B](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) running on Apple Neural Engine via [FluidAudio](https://github.com/FluidInference/FluidAudio).
 
 ## Features
 
-- **Desktop app** — minimal Electron GUI with push-to-talk and toggle-mute modes
-- **Push-to-talk** — tap a hotkey to start recording, tap again to stop (default mode)
-- **Toggle mute** — always listening, press a hotkey to mute/unmute
-- **File transcription** — transcribe `.wav` and `.flac` files from the CLI
-- **Lightweight** — ~50MB install, no PyTorch required (uses ONNX Runtime)
-- **Cross-platform** — macOS, Linux, Windows
-- **Swappable models** — use any model supported by [onnx-asr](https://github.com/istupakov/onnx-asr)
+- **Native macOS app** — lightweight Swift menu bar app, no Electron, no Python
+- **Push-to-talk** — hold the Globe (fn) key to record, release to transcribe and paste
+- **Fast and accurate** — Parakeet TDT 0.6B runs on Apple Neural Engine via CoreML
+- **Types into any app** — transcribed text is pasted directly into the active application
+- **Dynamic waveform** — floating pill shows a live audio waveform while recording
+- **Fully local** — everything runs on-device, nothing is sent to the cloud
+
+## Requirements
+
+- macOS 14.0 (Sonoma) or later
+- Apple Silicon Mac (M1 or later recommended for Neural Engine)
 
 ## Install
 
-### Desktop app (recommended)
+### Build from source
 
 ```bash
 git clone https://github.com/BradleyFarquharson/Listen.git
 cd Listen
-
-# Install Python backend
-pip install -e .
-
-# Install and run Electron frontend
-cd electron
-npm install
-npm start
+chmod +x build.sh
+./build.sh
 ```
 
-### Pre-built downloads
-
-Check the [Releases](https://github.com/BradleyFarquharson/Listen/releases) page for `.dmg` (macOS), `.exe` (Windows), `.AppImage` (Linux).
-
-## Quick start
-
-### Desktop app
+This builds `Listen.app` in the `dist/` directory. Copy it to `/Applications/`:
 
 ```bash
-cd electron && npm start
+cp -r dist/Listen.app /Applications/
 ```
 
-The app will open a window, download the model on first launch (~600MB), and then you're ready to go. Tap the hotkey (default: `Ctrl+Shift+Space`) to start/stop recording.
+### First launch
 
-### CLI
+On first launch, Listen will download the Parakeet model (~200MB). This only happens once.
 
-```bash
-# Download the model (~600MB, one-time)
-listen download
+## Usage
 
-# Start listening (push-to-talk mode, default)
-listen start
-
-# Or toggle-mute mode
-listen start --hotkey ctrl+shift+m
-```
-
-The model downloads automatically on first use if you skip `listen download`.
-
-## CLI Usage
-
-```
-listen start                          # Push-to-talk (Ctrl+Shift+Space)
-listen start --push-to-talk           # Explicit push-to-talk
-listen start --hotkey ctrl+shift+r    # Custom hotkey
-listen start --device 3               # Specific microphone
-listen start --quantized              # Use int8 model (faster, smaller)
-listen start --output transcript.txt  # Save to file
-
-listen transcribe recording.wav       # Transcribe a file
-listen transcribe *.wav --timestamps  # With word timestamps
-
-listen devices                        # List audio input devices
-listen download                       # Pre-download model
-listen serve                          # Start JSON server (for GUI)
-```
+1. Launch Listen — a microphone icon appears in the menu bar
+2. Grant **Input Monitoring** and **Microphone** permissions when prompted
+3. Open any text field (TextEdit, browser, Slack, etc.)
+4. **Hold the Globe (fn) key** — a floating waveform pill appears at the bottom of the screen
+5. Speak naturally
+6. **Release the Globe key** — your speech is transcribed and typed into the active app
 
 ## Permissions
 
-### macOS
+Listen needs two macOS permissions:
 
-Listen needs two permissions:
+| Permission | Why | Where to grant |
+|---|---|---|
+| **Input Monitoring** | Globe (fn) key detection | System Settings > Privacy & Security > Input Monitoring |
+| **Microphone** | Audio capture | System Settings > Privacy & Security > Microphone |
 
-1. **Microphone** — System Settings > Privacy & Security > Microphone > add your terminal app
-2. **Accessibility** (for global hotkeys in CLI mode) — System Settings > Privacy & Security > Accessibility > add your terminal app
-
-The Electron app handles global hotkeys natively, so Accessibility permission is only needed for CLI mode.
-
-### Linux
-
-You may need PortAudio installed:
-
-```bash
-sudo apt install portaudio19-dev    # Debian/Ubuntu
-sudo dnf install portaudio-devel    # Fedora
-```
-
-## Configuration
-
-Optional config file at `~/.config/listen/config.toml`:
-
-```toml
-model = "nemo-parakeet-tdt-0.6b-v2"
-mode = "push-to-talk"
-quantization = "int8"
-min_silence_ms = 700
-min_speech_ms = 250
-```
-
-CLI flags override the config file.
+Both are prompted automatically on first use.
 
 ## Architecture
 
 ```
-Electron app  ←── stdin/stdout JSON ──→  Python backend
+Listen/
+  App/
+    ListenApp.swift              — @main SwiftUI MenuBarExtra entry point
+    AppState.swift               — Central orchestrator
+  Audio/
+    AudioCaptureService.swift    — AVAudioEngine mic capture (16kHz mono)
+    VoiceActivityDetector.swift  — RMS energy-based speech segmentation
+  Transcription/
+    WhisperService.swift         — FluidAudio / Parakeet TDT wrapper
+  Input/
+    GlobeKeyMonitor.swift        — CGEvent tap for Globe (fn) key
+    HotkeyManager.swift          — Push-to-talk / toggle-mute modes
+    TextInserter.swift           — Clipboard + CGEvent Cmd+V paste
+  UI/
+    MenuBarView.swift            — Menu bar dropdown
+    RecordingPillView.swift      — Dynamic waveform visualization
+    RecordingPillWindow.swift    — Floating NSPanel overlay
+    SettingsView.swift           — Settings form
+  Config/
+    AppConfig.swift              — @AppStorage-backed settings
+    Permissions.swift            — Permission checks
+  Utilities/
+    SoundEffects.swift           — Start/stop audio cues
 ```
-
-The Electron frontend spawns the Python backend as a child process. They communicate via newline-delimited JSON on stdin/stdout. This keeps the frontend lightweight and the backend portable.
-
-## Building from source
-
-### Python backend (standalone binary)
-
-```bash
-pip install -e ".[build]"
-python scripts/build.py
-```
-
-### Electron app (bundles Python binary)
-
-```bash
-cd electron
-npm run build
-```
-
-Outputs:
-- macOS: `electron/build/Listen.dmg`
-- Windows: `electron/build/Listen Setup.exe`
-- Linux: `electron/build/Listen.AppImage`
-
-Each platform must be built on that platform.
 
 ## How it works
 
-1. Captures microphone audio at 16kHz via [sounddevice](https://python-sounddevice.readthedocs.io/)
-2. Detects speech/silence using RMS energy thresholds
-3. When silence is detected, sends the audio segment to the ONNX model
-4. Displays the transcription in the app (or terminal for CLI mode)
+1. Globe (fn) key press detected via CGEvent tap (Input Monitoring permission)
+2. AVAudioEngine captures microphone audio, resampled to 16kHz mono
+3. Voice activity detection segments speech using RMS energy thresholds
+4. Each speech segment is transcribed by Parakeet TDT via CoreML on Apple Neural Engine
+5. Transcribed text is inserted into the active app via clipboard + simulated Cmd+V
 
-The model runs via [onnx-asr](https://github.com/istupakov/onnx-asr) on ONNX Runtime. No GPU required.
+## Tech stack
+
+| Component | Technology |
+|---|---|
+| Language | Swift |
+| UI | SwiftUI MenuBarExtra + NSPanel |
+| STT model | NVIDIA Parakeet TDT 0.6B v3 |
+| Inference | CoreML / Apple Neural Engine via FluidAudio |
+| Audio | AVAudioEngine |
+| Hotkey | CGEvent tap (Input Monitoring) |
+| Text insertion | CGEvent keyboard simulation |
+| Config | @AppStorage (UserDefaults) |
 
 ## License
 
