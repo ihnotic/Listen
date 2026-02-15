@@ -1,12 +1,14 @@
 import Cocoa
+import ApplicationServices
 
-/// Inserts text into the active application via clipboard + CGEvent Cmd+V.
-/// Ported from electron/resources/macos-paste-helper.swift and main.js typeIntoActiveApp.
+/// Inserts text into the active application using the Accessibility API.
+/// Falls back to clipboard + CGEvent Cmd+V if AX insertion fails.
 final class TextInserter {
     private let queue = DispatchQueue(label: "com.listen.textInserter")
     private let semaphore = DispatchSemaphore(value: 1)
 
     /// Insert text into whatever app currently has keyboard focus.
+    /// Uses clipboard + Cmd+V — the only method that reliably works across all apps including Electron.
     func insertText(_ text: String) {
         let payload = text.hasSuffix(" ") ? text : text + " "
 
@@ -14,49 +16,49 @@ final class TextInserter {
             self?.semaphore.wait()
             defer { self?.semaphore.signal() }
 
-            listenLog("TextInserter: writing '\(payload)' to clipboard")
+            // Wait for physical modifier keys to settle after hotkey release
+            Thread.sleep(forTimeInterval: 0.3)
 
-            // Save current clipboard
-            let pasteboard = NSPasteboard.general
-            let previousContents = pasteboard.string(forType: .string)
-
-            // Write transcription to clipboard
-            pasteboard.clearContents()
-            pasteboard.setString(payload, forType: .string)
-
-            // Small delay to ensure clipboard is written
-            Thread.sleep(forTimeInterval: 0.05)
-
-            // Simulate Cmd+V at HID level
-            listenLog("TextInserter: simulating Cmd+V paste")
-            Self.simulatePaste()
-
-            // Restore clipboard after delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let pb = NSPasteboard.general
-                pb.clearContents()
-                if let prev = previousContents {
-                    pb.setString(prev, forType: .string)
-                }
-                listenLog("TextInserter: clipboard restored")
-            }
+            Self.insertViaClipboard(payload)
         }
     }
 
-    /// Post Cmd+V via CGEvent at HID level — bypasses focus issues.
-    private static func simulatePaste() {
-        let src = CGEventSource(stateID: .hidSystemState)
+    /// Fallback: clipboard + CGEvent Cmd+V paste.
+    private static func insertViaClipboard(_ text: String) {
+        listenLog("TextInserter: writing '\(text)' to clipboard")
 
-        // keycode 9 = 'v'
+        let pasteboard = NSPasteboard.general
+        let previousContents = pasteboard.string(forType: .string)
+
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        Thread.sleep(forTimeInterval: 0.1)
+
+        listenLog("TextInserter: simulating Cmd+V paste")
+        simulatePaste()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            if let prev = previousContents {
+                pb.setString(prev, forType: .string)
+            }
+            listenLog("TextInserter: clipboard restored")
+        }
+    }
+
+    /// Post Cmd+V via CGEvent.
+    private static func simulatePaste() {
+        let src = CGEventSource(stateID: .privateState)
         guard let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 9, keyDown: true),
               let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 9, keyDown: false) else {
-            NSLog("TextInserter: Failed to create CGEvent")
+            listenLog("TextInserter: Failed to create CGEvent")
             return
         }
-
         keyDown.flags = .maskCommand
         keyDown.post(tap: .cghidEventTap)
-
+        Thread.sleep(forTimeInterval: 0.05)
         keyUp.flags = .maskCommand
         keyUp.post(tap: .cghidEventTap)
     }

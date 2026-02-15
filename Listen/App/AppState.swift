@@ -67,13 +67,9 @@ final class AppState: ObservableObject {
     private func bootstrap() async {
         listenLog("Bootstrap starting...")
 
-        // Check permissions
+        // Check permissions (log only, don't prompt — avoids opening System Settings every launch)
         let hasAx = permissions.checkAccessibility()
         listenLog("Accessibility: \(hasAx)")
-
-        if !hasAx {
-            permissions.promptAccessibility()
-        }
 
         statusText = "Loading Parakeet model..."
         isModelLoading = true

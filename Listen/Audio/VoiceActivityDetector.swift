@@ -3,7 +3,7 @@ import Foundation
 /// RMS energy-based voice activity detector.
 /// Ported from listen/audio.py — segments audio based on energy thresholds.
 final class VoiceActivityDetector {
-    var energyThreshold: Float = 0.01
+    var energyThreshold: Float = 0.002
     var minSpeechMs: Int = 250
     var minSilenceMs: Int = 700
 
