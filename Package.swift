@@ -7,7 +7,8 @@ let package = Package(
         .macOS(.v14)
     ],
     dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.12.1"),
+        // FluidAudio 0.13.5 removed the AsrManager.initialize(models:) API used here.
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.13.4"),
     ],
     targets: [
         .executableTarget(

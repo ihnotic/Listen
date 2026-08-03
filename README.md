@@ -35,6 +35,11 @@ This builds `Listen.app` in the `dist/` directory. Copy it to `/Applications/`:
 cp -r dist/Listen.app /Applications/
 ```
 
+The build uses the first available macOS code-signing identity. If none is
+installed, it falls back to an ad-hoc signature so the local app can launch.
+With ad-hoc signing, macOS privacy permissions may need to be granted again
+after future rebuilds.
+
 ### First launch
 
 On first launch, Listen will download the Parakeet model (~200MB). This only happens once.

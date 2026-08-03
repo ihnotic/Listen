@@ -43,9 +43,25 @@ cp "$SCRIPT_DIR/Listen/Resources/MenuBarIconTemplate@2x.png" "$RESOURCES_DIR/Men
 # Copy entitlements (used for signing)
 cp "$SCRIPT_DIR/Listen/Resources/Listen.entitlements" "$CONTENTS/Listen.entitlements"
 
-# Sign with developer identity (stable signature = TCC permissions survive rebuilds)
-IDENTITY=$(security find-identity -v -p codesigning | head -1 | sed 's/.*"\(.*\)"/\1/')
-echo "==> Signing with: $IDENTITY"
+# Prefer a stable identity so TCC permissions survive rebuilds. A fresh Mac may
+# not have one yet; an explicit ad-hoc signature still produces a launchable
+# local app, but privacy permissions may need to be granted again after rebuilds.
+IDENTITY=""
+while IFS= read -r identity_line; do
+    if [[ "$identity_line" =~ \"([^\"]+)\" ]]; then
+        IDENTITY="${BASH_REMATCH[1]}"
+        break
+    fi
+done < <(security find-identity -v -p codesigning 2>/dev/null || true)
+
+if [ -n "$IDENTITY" ]; then
+    echo "==> Signing with: $IDENTITY"
+else
+    IDENTITY="-"
+    echo "==> No code-signing identity found; using an ad-hoc signature"
+    echo "    Privacy permissions may need to be re-granted after future rebuilds."
+fi
+
 codesign --force --deep --sign "$IDENTITY" \
     --entitlements "$CONTENTS/Listen.entitlements" \
     "$APP_BUNDLE"
