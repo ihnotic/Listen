@@ -41,10 +41,10 @@ final class VoiceActivityDetector {
     }
 
     /// Process a single audio chunk.
+    /// Buffers all audio — no mid-recording splits. Transcription happens on flush (hotkey release).
     private func processChunk(_ chunk: [Float]) {
         let rms = Self.computeRMS(chunk)
         let isSpeech = rms > energyThreshold
-        let chunkDurationMs = Float(chunk.count) / sampleRate * 1000
 
         chunkCount += 1
 
@@ -52,24 +52,18 @@ final class VoiceActivityDetector {
             listenLog("VAD chunk #\(chunkCount): \(chunk.count) samples, RMS=\(String(format: "%.5f", rms)), threshold=\(energyThreshold), isSpeech=\(isSpeech)")
         }
 
+        // Always buffer audio (speech or trailing silence after speech detected)
         if isSpeech {
             segmentBuffer.append(contentsOf: chunk)
-            silenceDurationMs = 0
             if !speechDetected {
                 listenLog("VAD: speech started (RMS=\(String(format: "%.4f", rms)))")
             }
             speechDetected = true
             speechChunks += 1
         } else if speechDetected {
-            // Include trailing silence in segment
+            // Include silence between speech — don't split mid-recording
             segmentBuffer.append(contentsOf: chunk)
-            silenceDurationMs += chunkDurationMs
             silenceChunks += 1
-
-            if silenceDurationMs >= Float(minSilenceMs) {
-                listenLog("VAD: silence threshold reached (\(String(format: "%.0f", silenceDurationMs))ms >= \(minSilenceMs)ms)")
-                yieldSegmentIfValid()
-            }
         }
 
         // Log periodic stats
