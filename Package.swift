@@ -7,8 +7,7 @@ let package = Package(
         .macOS(.v14)
     ],
     dependencies: [
-        // FluidAudio 0.13.5 removed the AsrManager.initialize(models:) API used here.
-        .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.13.4"),
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.15.5"),
     ],
     targets: [
         .executableTarget(
@@ -27,6 +26,11 @@ let package = Package(
             resources: [
                 .process("Resources/Assets.xcassets"),
             ]
+        ),
+        .testTarget(
+            name: "ListenTests",
+            dependencies: ["Listen"],
+            path: "tests/ListenTests"
         ),
     ]
 )

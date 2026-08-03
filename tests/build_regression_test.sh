@@ -77,8 +77,8 @@ assert_signing_identity \
     "  1) E79D13CED0563C45F13F68CE3C135BBC04BAE742 \"Listen Dev\"" \
     "Listen Dev"
 
-grep -Fq 'exact: "0.13.4"' "$PROJECT_ROOT/Package.swift" || \
-    fail "FluidAudio must be pinned to the last release compatible with Listen's ASR API"
+grep -Fq 'exact: "0.15.5"' "$PROJECT_ROOT/Package.swift" || \
+    fail "FluidAudio must be pinned to the release validated with Listen 1.1 model backends"
 
 if grep -Fq 'Listen Dev' "$PROJECT_ROOT/reinstall.sh"; then
     fail "reinstall.sh must not require a machine-specific signing identity"

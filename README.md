@@ -2,13 +2,14 @@
 
 Native macOS speech-to-text. Runs entirely on your machine — no cloud, no API keys, no data leaves your device.
 
-Powered by [NVIDIA Parakeet TDT 0.6B](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) running on Apple Neural Engine via [FluidAudio](https://github.com/FluidInference/FluidAudio).
+Powered by [NVIDIA Parakeet Unified EN 0.6B](https://huggingface.co/nvidia/parakeet-unified-en-0.6b) running on Apple Neural Engine via [FluidAudio](https://github.com/FluidInference/FluidAudio). Parakeet TDT v3 remains available for multilingual dictation, with Apple Speech as an experimental macOS 26 option.
 
 ## Features
 
 - **Native macOS app** — lightweight Swift menu bar app, no Electron, no Python
 - **Push-to-talk** — hold the Globe (fn) key to record, release to transcribe and paste
-- **Fast and accurate** — Parakeet TDT 0.6B runs on Apple Neural Engine via CoreML
+- **Fast and accurate** — Parakeet Unified 0.6B runs on Apple Neural Engine via CoreML
+- **Selectable models** — English-first Unified, multilingual Parakeet v3, or experimental Apple Speech
 - **Types into any app** — transcribed text is pasted directly into the active application
 - **Dynamic waveform** — floating pill shows a live audio waveform while recording
 - **Fully local** — everything runs on-device, nothing is sent to the cloud
@@ -42,7 +43,7 @@ after future rebuilds.
 
 ### First launch
 
-On first launch, Listen will download the Parakeet model (~200MB). This only happens once.
+On first launch, Listen downloads the Parakeet Unified INT8 model (~614MB). This only happens once. The multilingual model is downloaded separately if selected; Apple Speech uses a macOS-managed system asset.
 
 ## Usage
 
@@ -75,7 +76,8 @@ Listen/
     AudioCaptureService.swift    — AVAudioEngine mic capture (16kHz mono)
     VoiceActivityDetector.swift  — RMS energy-based speech segmentation
   Transcription/
-    WhisperService.swift         — FluidAudio / Parakeet TDT wrapper
+    WhisperService.swift         — Selectable Unified, multilingual, and Apple Speech backends
+    TranscriptionModel.swift     — Persisted model selection and availability
   Input/
     GlobeKeyMonitor.swift        — CGEvent tap for Globe (fn) key
     HotkeyManager.swift          — Push-to-talk / toggle-mute modes
@@ -96,8 +98,8 @@ Listen/
 
 1. Globe (fn) key press detected via CGEvent tap (Input Monitoring permission)
 2. AVAudioEngine captures microphone audio, resampled to 16kHz mono
-3. Voice activity detection segments speech using RMS energy thresholds
-4. Each speech segment is transcribed by Parakeet TDT via CoreML on Apple Neural Engine
+3. Voice activity detection buffers the utterance until the hotkey is released
+4. The selected on-device model transcribes the complete utterance
 5. Transcribed text is inserted into the active app via clipboard + simulated Cmd+V
 
 ## Tech stack
@@ -106,7 +108,8 @@ Listen/
 |---|---|
 | Language | Swift |
 | UI | SwiftUI MenuBarExtra + NSPanel |
-| STT model | NVIDIA Parakeet TDT 0.6B v3 |
+| Default STT model | NVIDIA Parakeet Unified EN 0.6B INT8 |
+| Optional STT models | Parakeet TDT 0.6B v3; Apple Speech on macOS 26 |
 | Inference | CoreML / Apple Neural Engine via FluidAudio |
 | Audio | AVAudioEngine |
 | Hotkey | CGEvent tap (Input Monitoring) |
