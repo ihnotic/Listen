@@ -22,8 +22,12 @@ final class AppConfig: ObservableObject {
     @Published var minSpeechMs: Int = 250
     @Published var minSilenceMs: Int = 700
 
-    // MARK: - Model (internal, not user-facing)
-    @Published var modelName: String = "parakeet-tdt-0.6b"
+    // MARK: - Transcription Model
+    @Published var transcriptionModel: TranscriptionModel {
+        didSet {
+            UserDefaults.standard.set(transcriptionModel.rawValue, forKey: "transcription.model")
+        }
+    }
 
     enum RecordingMode: String, CaseIterable {
         case pushToTalk = "push-to-talk"
@@ -209,5 +213,8 @@ final class AppConfig: ObservableObject {
         let defaults = UserDefaults.standard
         self.mode = RecordingMode(rawValue: defaults.string(forKey: "mode") ?? "") ?? .pushToTalk
         self.hotkey = Hotkey.load()
+        self.transcriptionModel = TranscriptionModel.fromPersistedValue(
+            defaults.string(forKey: "transcription.model")
+        )
     }
 }

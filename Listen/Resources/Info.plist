@@ -9,9 +9,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.listen.app</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>3</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>1.1.0</string>
 	<key>CFBundleExecutable</key>
 	<string>Listen</string>
 	<key>CFBundlePackageType</key>
@@ -24,5 +24,7 @@
 	<string>14.0</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Listen needs microphone access for speech-to-text transcription.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Listen uses on-device speech recognition when Apple Speech is selected.</string>
 </dict>
 </plist>

@@ -128,6 +128,19 @@ struct MenuBarView: View {
                         .foregroundColor(.secondary)
                 }
 
+                // Transcription Model
+                settingsSection("Transcription Model") {
+                    VStack(spacing: 6) {
+                        ForEach(TranscriptionModel.availableOnCurrentSystem) { model in
+                            modelButton(model)
+                        }
+                    }
+
+                    Text(appState.config.transcriptionModel.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
                 // Vocabulary
                 settingsSection("Vocabulary") {
                     Button {
@@ -224,6 +237,41 @@ struct MenuBarView: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+
+    private func modelButton(_ model: TranscriptionModel) -> some View {
+        let isSelected = appState.config.transcriptionModel == model
+
+        return Button {
+            appState.config.transcriptionModel = model
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(model.displayName)
+                        .font(.callout)
+                    if model == .appleSpeechAnalyzer {
+                        Text("Experimental")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .foregroundColor(.accentColor)
+                }
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .background(isSelected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1))
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(appState.isModelLoading || appState.isRecording)
     }
 
     private var modeDescription: String {

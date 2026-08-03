@@ -34,7 +34,7 @@ final class AppState: ObservableObject {
     // MARK: - Services
     let audioCaptureService = AudioCaptureService()
     let voiceActivityDetector = VoiceActivityDetector()
-    let whisperService = WhisperService()
+    let transcriptionService = TranscriptionService()
     let globeKeyMonitor = GlobeKeyMonitor()
     let hotkeyManager = HotkeyManager()
     let textInserter = TextInserter()
@@ -47,6 +47,7 @@ final class AppState: ObservableObject {
     @Published var config = AppConfig()
 
     private var audioTask: Task<Void, Never>?
+    private var modelLoadTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -73,22 +74,7 @@ final class AppState: ObservableObject {
         let hasAx = permissions.checkAccessibility()
         listenLog("Accessibility: \(hasAx)")
 
-        statusText = "Loading Parakeet model..."
-        isModelLoading = true
-
-        do {
-            listenLog("Loading Parakeet TDT 0.6B model (auto-downloads on first run)...")
-            try await whisperService.loadModel(path: "")  // FluidAudio handles download internally
-            isModelLoaded = true
-            isModelLoading = false
-            statusText = "Ready"
-            listenLog("Parakeet model loaded — Ready!")
-        } catch {
-            isModelLoading = false
-            errorMessage = "Failed to load model: \(error.localizedDescription)"
-            statusText = "Error"
-            listenLog("ERROR loading model: \(error)")
-        }
+        await loadTranscriptionModel(config.transcriptionModel)
 
         // Start CGEvent tap for hotkey (needs Input Monitoring permission)
         startHotkeyMonitor()
@@ -132,6 +118,43 @@ final class AppState: ObservableObject {
                 self?.hotkeyManager.mode = newMode
             }
             .store(in: &cancellables)
+
+        config.$transcriptionModel
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] model in
+                guard let self else { return }
+                self.modelLoadTask?.cancel()
+                self.modelLoadTask = Task { @MainActor [weak self] in
+                    await self?.loadTranscriptionModel(model)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func loadTranscriptionModel(_ model: TranscriptionModel) async {
+        isModelLoaded = false
+        isModelLoading = true
+        errorMessage = nil
+        statusText = model.loadingDescription
+        listenLog("Loading transcription model: \(model.rawValue)")
+
+        do {
+            try await transcriptionService.load(model: model)
+            try Task.checkCancellation()
+            isModelLoaded = true
+            isModelLoading = false
+            statusText = "Ready"
+            listenLog("Transcription model loaded: \(model.displayName)")
+        } catch is CancellationError {
+            listenLog("Model load cancelled: \(model.displayName)")
+        } catch {
+            isModelLoading = false
+            errorMessage = "Failed to load \(model.displayName): \(error.localizedDescription)"
+            statusText = "Model Error"
+            listenLog("ERROR loading \(model.rawValue): \(error)")
+        }
     }
 
     // MARK: - Hotkey Monitor (CGEvent tap)
@@ -265,7 +288,7 @@ final class AppState: ObservableObject {
         do {
             let durationSeconds = Double(audioData.count) / 16000.0
             listenLog("Transcribing segment: \(audioData.count) samples (\(String(format: "%.1f", durationSeconds))s)")
-            let text = try await whisperService.transcribe(audioData: audioData)
+            let text = try await transcriptionService.transcribe(audioData: audioData)
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             listenLog("Transcription result: '\(trimmed)' (raw: '\(text)')")
 
