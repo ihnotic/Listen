@@ -1,20 +1,18 @@
 #!/bin/bash
-# Rebuild, sign with stable cert, and reinstall Listen.app
-# TCC permissions survive because the signing identity stays constant.
+# Rebuild, package, sign, and reinstall Listen.app.
 set -euo pipefail
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
 
 echo "==> Building..."
-swift build -c release
+"$SCRIPT_DIR/build.sh"
 
 echo "==> Installing..."
 pkill -x Listen 2>/dev/null || true
 sleep 1
 
-cp .build/release/Listen /Applications/Listen.app/Contents/MacOS/Listen
-codesign --force --deep --sign "Listen Dev" \
-    --entitlements /Applications/Listen.app/Contents/Listen.entitlements \
-    /Applications/Listen.app
+ditto "$SCRIPT_DIR/dist/Listen.app" /Applications/Listen.app
+codesign --verify --deep --strict /Applications/Listen.app
 
 echo "==> Launching..."
 open /Applications/Listen.app
